@@ -6,8 +6,9 @@
  */
 
 const CHECKBOX_CLASS = 'chat-select-checkbox';
-const SELECTOR_CONVO_LINK = 'nav a';        // conversation anchor
-const SIDE_NAV_ID_PREFIX = 'history';       // prefix ChatGPT uses for conversation sidebar list
+// Only grab conversation links in the sidebar
+const SELECTOR_CONVO_LINK = 'nav a[href^="/c/"]';
+let observer;
 
 // ----- Utility --------------------------------------------------------------
 /** Extract the current workspace slug so we can hit the right backend endpoint */
@@ -19,7 +20,7 @@ function getWorkspaceSlug() {
 /** PATCH helper for /backend-api/conversations/:id */
 async function patchConversation(id, body) {
   const slug = getWorkspaceSlug();
-  const url = `https://chatgpt.com/backend-api/conversations/${id}`;
+  const url = `${window.location.origin}/backend-api/conversations/${id}`;
   const res = await fetch(url, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
@@ -32,7 +33,7 @@ async function patchConversation(id, body) {
 /** DELETE helper */
 async function deleteConversation(id) {
   const slug = getWorkspaceSlug();
-  const url = `https://chatgpt.com/backend-api/conversations/${id}`;
+  const url = `${window.location.origin}/backend-api/conversations/${id}`;
   const res = await fetch(url, {
     method: 'DELETE',
     headers: {'Content-Type': 'application/json'},
@@ -62,7 +63,23 @@ function addCheckboxes() {
   });
 }
 
+function startObserver() {
+  if (observer) return;
+  const nav = document.querySelector('nav');
+  if (!nav) return;
+  observer = new MutationObserver(addCheckboxes);
+  observer.observe(nav, {childList: true, subtree: true});
+}
+
+function stopObserver() {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+}
+
 function removeCheckboxes() {
+  stopObserver();
   document.querySelectorAll('.' + CHECKBOX_CLASS).forEach(cb => {
     const parent = cb.parentElement;
     cb.remove();
@@ -112,10 +129,19 @@ async function deleteSelected() {
 // ----- Listen for messages from popup ---------------------------------------
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   switch (msg.action) {
-    case 'show-checkboxes': addCheckboxes(); break;
-    case 'hide-checkboxes': removeCheckboxes(); break;
-    case 'select-all': document.querySelectorAll('.' + CHECKBOX_CLASS).forEach(cb => cb.checked = true); break;
-    case 'deselect-all': document.querySelectorAll('.' + CHECKBOX_CLASS).forEach(cb => cb.checked = false); break;
+    case 'show-checkboxes':
+      addCheckboxes();
+      startObserver();
+      break;
+    case 'hide-checkboxes':
+      removeCheckboxes();
+      break;
+    case 'select-all':
+      document.querySelectorAll('.' + CHECKBOX_CLASS).forEach(cb => cb.checked = true);
+      break;
+    case 'deselect-all':
+      document.querySelectorAll('.' + CHECKBOX_CLASS).forEach(cb => cb.checked = false);
+      break;
     case 'archive-selected': archiveSelected(); break;
     case 'delete-selected': deleteSelected(); break;
   }
