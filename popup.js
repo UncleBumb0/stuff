@@ -9,3 +9,4 @@ document.getElementById('selectAll').addEventListener('click', () => sendAction(
 document.getElementById('deselectAll').addEventListener('click', () => sendAction('deselect-all'));
 document.getElementById('archiveSelected').addEventListener('click', () => sendAction('archive-selected'));
 document.getElementById('deleteSelected').addEventListener('click',  () => sendAction('delete-selected'));
+
